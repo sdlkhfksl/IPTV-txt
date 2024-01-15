@@ -26,4 +26,4 @@ jobs:
       run: python convert_m3u_to_txt.py
 
     - name: Move TV.txt to Directory
-      run: mv tv.txt /home/runner/work/IPTV-txt/t.txt
+      run: mv tv.txt t.txt

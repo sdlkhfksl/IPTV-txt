@@ -1,0 +1,79 @@
+name: Daily Telegram Channel Notification
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # 每天UTC午夜执行一次
+
+jobs:
+  send_notification:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x' # 选择Python版本
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests pytz
+
+      - name: Get Proxies Text
+        run: |
+          wget https://raw.githubusercontent.com/hookzof/socks5_list/master/tg/mtproto.json -O mtproto.json
+          wget https://raw.githubusercontent.com/hookzof/socks5_list/master/tg/socks.json -O socks.json
+          wget https://raw.githubusercontent.com/ALIILAPRO/MTProtoProxy/main/mtproto.txt -O mtproto.txt
+
+      - name: Send to Telegram Channel
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
+        run: |
+          python -c "
+import json
+import requests
+from datetime import datetime, timedelta
+import pytz
+
+def send_message(bot_token, chat_id, text):
+    url = f'https://api.telegram.org/bot{bot_token}/sendMessage'
+    data = {
+        'chat_id': chat_id,
+        'text': text,
+        'parse_mode': 'Markdown'
+    }
+    response = requests.post(url, data=data)
+    if not response.ok:
+        print(f'Failed to send message: {response.content}')
+    else:
+        print('Message sent successfully')
+
+utc_now = datetime.now(pytz.utc)
+
+new_proxies = []
+with open('mtproto.json') as mtproto_file, open('socks.json') as socks_file:
+    mtproto_data = json.load(mtproto_file)
+    socks_data = json.load(socks_file)
+    for proxy_list in (mtproto_data, socks_data):
+        for proxy in proxy_list:
+            if 'addTime' in proxy:
+                proxy_time = datetime.utcfromtimestamp(proxy['addTime'])
+                if utc_now - proxy_time < timedelta(days=1):
+                    proxy_str = f\"tg://proxy?server={proxy['host']}&port={proxy['port']}&secret={proxy['secret']}\"
+                    new_proxies.append(proxy_str)
+
+with open('mtproto.txt') as mtproto_text_file:
+    for line in mtproto_text_file:
+        if line.startswith('tg://proxy'):
+            new_proxies.append(line.strip())
+
+BATCH_SIZE = 5
+messages = ['\n'.join(new_proxies[i:i + BATCH_SIZE]) for i in range(0, len(new_proxies), BATCH_SIZE)]
+
+for message in messages:
+    send_message('${{ secrets.TELEGRAM_BOT_TOKEN }}', '${{ secrets.TELEGRAM_CHANNEL_ID }}', message)
+"

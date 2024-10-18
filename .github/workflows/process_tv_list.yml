@@ -1,0 +1,40 @@
+name: Process TV List
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+
+jobs:
+  process:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.x
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install m3u8 requests
+
+    - name: Run TV List Processor
+      run: python tv_list_processor.py
+
+    - name: Upload processed txt file as artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: tv2.txt
+        path: ./tv2.txt
+
+    - name: Commit and push changes
+      run: |
+       git config --global user.email "actions@github.com"
+       git config --global user.name "GitHub Actions"
+       git add tv2.txt
+       git commit -m "Update tv2.txt [skip ci]"
+       git push

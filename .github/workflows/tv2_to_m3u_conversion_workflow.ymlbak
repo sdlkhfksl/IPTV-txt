@@ -1,0 +1,41 @@
+name: Daily Telegram Notification
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # 每天午夜执行一次
+
+jobs:
+  send_notification:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x' # 选择Python版本
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Get MTProtoProxy Text
+        run: |
+          wget https://raw.githubusercontent.com/ALIILAPRO/MTProtoProxy/main/mtproto.txt -O mtproto.txt
+
+      - name: Send to Telegram in Batches of 5 Lines
+        run: |
+          TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }}
+          split -l 5 mtproto.txt part_ # split file into chunks of 5 lines each
+          for part in part_*; do # Iterate over each chunk
+            TEXT=$(cat "$part")
+            ENCODED_TEXT=$(echo "$TEXT" | python -c "import urllib.parse, sys; print(urllib.parse.quote_plus(sys.stdin.read()))")
+            curl -s -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
+              -d "chat_id=$CHAT_ID" -d text="$ENCODED_TEXT"
+            sleep 1 # To prevent hitting Telegram rate limits
+          done
+          rm part_* # Clean up the split files

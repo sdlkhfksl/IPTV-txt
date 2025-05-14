@@ -1,0 +1,32 @@
+import requests
+import re
+
+# 从 GitHub 上获取文件内容
+url = "https://raw.githubusercontent.com/lizongying/my-tv/main/app/src/main/java/com/lizongying/mytv/TVList.kt"
+response = requests.get(url)
+content = response.text
+
+# 提取要处理的字符串
+pattern = re.compile(r'央视频道.*?CGTN 纪录频道,.*?$', re.DOTALL | re.MULTILINE)
+matches = pattern.findall(content)
+
+# 检查是否有匹配项
+if matches:
+    matched_text = matches[0]
+
+    # 逐行处理字符串
+    lines = matched_text.split("\n")
+    result = []
+    for line in lines:
+        if "," not in line:
+            line += ",#genre#"
+        result.append(line)
+
+    # 将结果写入 txt 文件
+    with open("tv2.txt", "w") as f:
+        for line in result:
+            f.write(line + "\n")
+
+    print("处理完成，结果已保存到 tv2.txt")
+else:
+    print("未找到匹配项。")  

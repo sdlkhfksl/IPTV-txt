@@ -6,24 +6,28 @@ url = "https://raw.githubusercontent.com/lizongying/my-tv/main/app/src/main/java
 response = requests.get(url)
 content = response.text
 
-# 提取包含央视频道至CGTN纪录频道的完整段落
-pattern = re.compile(r'央视频道.*?CGTN 纪录频道,.*?ProgramType\.Y_PROTO.*?;', re.DOTALL)
+# Use a less brittle regex to find the content block from "央视" to "CGTN 纪录频道".
+# This pattern is more robust against minor formatting changes in the source file.
+pattern = re.compile(r'"央视" to listOf\(.*?CGTN 纪录频道.*?\),', re.DOTALL)
 matches = pattern.findall(content)
 
 # 检查是否有匹配项
 if matches:
     matched_text = matches[0]
 
-    # 提取电视频道信息
-    channel_pattern = re.compile(r'TV\(\s*0,\s*"([^"]+)",\s*"([^"]+)",\s*listOf\(([^)]+)\)')
+    # This pattern captures the channel name and the list of URLs.
+    channel_pattern = re.compile(r'TV\(\s*0,\s*"[^"]+",\s*"([^"]+)",\s*listOf\(([^)]*)\)')
     result = []
     for channel_match in channel_pattern.finditer(matched_text):
         # 提取电视频道名称
-        channel_name = channel_match.group(2)
+        channel_name = channel_match.group(1)
         # 提取电视频道的所有URL
-        urls = re.findall(r'"(http[^"]+)"', channel_match.group(3))
-        # 构造每个电视频道对应所有链接的格式化字符串
-        result.extend(f"{channel_name},{url}" for url in urls)
+        # The list of URLs can be empty, so we handle that.
+        url_block = channel_match.group(2)
+        urls = re.findall(r'"(http[^"]+)"', url_block)
+        # Construct the formatted string for each channel and its URLs.
+        # Fixed the variable shadowing bug here: use a different variable name `channel_url` instead of `url`.
+        result.extend(f"{channel_name},{channel_url}" for channel_url in urls)
 
     # 将结果写入 txt 文件
     with open("tv2.txt", "w", encoding='utf-8') as f:
